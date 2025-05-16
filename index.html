@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Abuse & Racism Checker</title>
+<style>
+  :root {
+    --dark-bg: #121212;
+    --dark-text-bg: #1e1e1e;
+    --dark-fg: white;
+    --dark-button-bg: #8a2be2;
+    --dark-button-fg: white;
+    --dark-result-clean: lightgreen;
+    --dark-result-bad: red;
+    --dark-checking: yellow;
+
+    --light-bg: white;
+    --light-text-bg: white;
+    --light-fg: black;
+    --light-button-bg: #7a1dd1;
+    --light-button-fg: white;
+    --light-result-clean: green;
+    --light-result-bad: red;
+    --light-checking: orange;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 600px;
+    margin: 30px auto;
+    padding: 20px;
+    background-color: var(--dark-bg);
+    color: var(--dark-fg);
+    transition: background-color 0.5s, color 0.5s;
+  }
+
+  body.light {
+    background-color: var(--light-bg);
+    color: var(--light-fg);
+  }
+
+  h2 {
+    margin-bottom: 10px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 180px;
+    font-size: 16px;
+    background-color: var(--dark-text-bg);
+    color: var(--dark-fg);
+    border: 2px solid var(--dark-button-bg);
+    border-radius: 4px;
+    padding: 10px;
+    resize: vertical;
+    transition: background-color 0.5s, color 0.5s, border-color 0.5s;
+  }
+
+  body.light textarea {
+    background-color: var(--light-text-bg);
+    color: var(--light-fg);
+    border-color: var(--light-button-bg);
+  }
+
+  button {
+    background-color: var(--dark-button-bg);
+    color: var(--dark-button-fg);
+    border: none;
+    padding: 12px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+
+  button:hover {
+    background-color: #7a1dd1;
+  }
+
+  body.light button {
+    background-color: var(--light-button-bg);
+    color: var(--light-button-fg);
+  }
+
+  #btn-toggle {
+    margin-left: 10px;
+  }
+
+  #result {
+    margin-top: 20px;
+    font-size: 18px;
+    min-height: 24px;
+    transition: color 0.5s;
+    white-space: pre-wrap;
+  }
+
+  #meter {
+    width: 100%;
+    height: 20px;
+    background-color: #333;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+  }
+
+  #meter-fill {
+    height: 100%;
+    width: 0%;
+    background-color: var(--dark-button-bg);
+    transition: width 0.6s ease, background-color 0.5s;
+  }
+
+  body.light #meter-fill {
+    background-color: var(--light-button-bg);
+  }
+
+  #disclaimer {
+    margin-top: 40px;
+    font-size: 12px;
+    color: gray;
+  }
+</style>
+</head>
+<body>
+
+<h2>Type your paragraph below</h2>
+
+<textarea id="textArea" placeholder="Start typing..."></textarea>
+
+<div>
+  <button id="btn-check">Check for Bad Words</button>
+  <button id="btn-toggle">Toggle Dark/Light Mode</button>
+</div>
+
+<div id="result"></div>
+
+<div id="meter">
+  <div id="meter-fill"></div>
+</div>
+
+<div id="disclaimer">
+  Note: This program may not detect all forms of abusive or racist language.
+</div>
+
+<script>
+  const badWords = [
+    "bsdk", "raand", "randi", "madharchod", "randwa", "chutiya", "jhaat", "lund", 
+    "chut", "choochi", "chod", "behenchod", "gaand", "fuck", "dumb", "nigga", 
+    "nigger", "maa ki chut", "behen ki chut", "behen ka loda", "behn ka loda", 
+    "behn ke lode", "randi ke dalal", "chodal", "chinnar", "fuckass", "sex", 
+    "rape", "black", "rand", "gand", "choochi", "bhosdi", "bhosda", "bhosdike", 
+    "bhosdika", "dalal", "nigger", "black", "land", "bhosad", "chewt", "chodna", 
+    "muth", "spaerm", "chutad", "muh me", "lauda", "boobs", "vagina", "penis", 
+    "ling", "chinri"
+  ];
+
+  const maxMeterCount = 10;
+  let animRunning = false;
+  let animInterval;
+
+  const body = document.body;
+  const textarea = document.getElementById('textArea');
+  const btnCheck = document.getElementById('btn-check');
+  const btnToggle = document.getElementById('btn-toggle');
+  const resultLabel = document.getElementById('result');
+  const meterFill = document.getElementById('meter-fill');
+
+  // Apply theme colors
+  function applyTheme(darkMode) {
+    if(darkMode) {
+      body.classList.remove('light');
+    } else {
+      body.classList.add('light');
+    }
+  }
+
+  let darkMode = true;
+  applyTheme(darkMode);
+
+  btnToggle.onclick = () => {
+    darkMode = !darkMode;
+    applyTheme(darkMode);
+  };
+
+  // Animation blinking text color on "Checking..."
+  function blinkChecking() {
+    if (!animRunning) return;
+    const checkingColor = darkMode ? 'yellow' : 'orange';
+    const bgColor = darkMode ? '#121212' : 'white';
+    if(resultLabel.style.color !== checkingColor) {
+      resultLabel.style.color = checkingColor;
+    } else {
+      resultLabel.style.color = bgColor;
+    }
+  }
+
+  function startCheckingAnimation() {
+    animRunning = true;
+    resultLabel.textContent = "Checking paragraph...";
+    blinkChecking();
+    animInterval = setInterval(blinkChecking, 500);
+  }
+
+  function stopCheckingAnimation() {
+    animRunning = false;
+    clearInterval(animInterval);
+    resultLabel.style.color = darkMode ? 'white' : 'black';
+  }
+
+  // Main check function
+  function checkText() {
+    stopCheckingAnimation();
+    const text = textarea.value.toLowerCase();
+    const found = badWords.filter(word => text.includes(word));
+    const count = found.length;
+
+    // Meter update
+    const meterValue = Math.min(count, maxMeterCount) / maxMeterCount * 100;
+    meterFill.style.width = meterValue + '%';
+
+    if(count > 0) {
+      resultLabel.style.color = darkMode ? 'red' : 'red';
+      resultLabel.textContent = "Inappropriate words found: " + found.join(", ");
+    } else {
+      resultLabel.style.color = darkMode ? 'lightgreen' : 'green';
+      resultLabel.textContent = "No abusive or racist language found.";
+    }
+  }
+
+  // Button click or Enter key press triggers checking animation then result
+  btnCheck.onclick = () => {
+    startCheckingAnimation();
+    setTimeout(checkText, 1500);
+  };
+
+  textarea.addEventListener("keydown", function(e) {
+    if(e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      startCheckingAnimation();
+      setTimeout(checkText, 1500);
+    }
+  });
+</script>
+
+</body>
+</html>
